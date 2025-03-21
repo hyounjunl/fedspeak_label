@@ -4,6 +4,7 @@ from psycopg2.extras import DictCursor
 import os
 import secrets
 from datetime import datetime
+import json
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -147,33 +148,6 @@ def get_user_stats(user_id):
         cur.close()
         conn.close()
 
-def ensure_table_fields():
-    """Ensure the database tables have the necessary fields for user tracking"""
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    try:
-        # Check if labeled_by column exists
-        cur.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'fomc_qna' AND column_name = 'labeled_by'
-        """)
-        
-        if not cur.fetchone():
-            # Add labeled_by and labeled_at columns if they don't exist
-            cur.execute("""
-                ALTER TABLE fomc_qna 
-                ADD COLUMN labeled_by VARCHAR(255),
-                ADD COLUMN labeled_at TIMESTAMP
-            """)
-            print("Added labeled_by and labeled_at columns to fomc_qna table")
-    except Exception as e:
-        print(f"Error ensuring table fields: {e}")
-    finally:
-        cur.close()
-        conn.close()
-
 # Routes
 @app.route('/')
 def index():
@@ -246,16 +220,11 @@ def logout():
     session.pop('user_id', None)
     return redirect(url_for('index'))
 
-# Essential for Vercel deployment
-try:
-    ensure_table_fields()
-except Exception as e:
-    print(f"Database initialization error: {e}")
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Vercel"""
+    return jsonify({"status": "ok"})
 
 # For local development, use the development server
 if __name__ == '__main__':
-    # Make sure the database has the necessary fields
-    ensure_table_fields()
-    
-    # Run the app
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)
