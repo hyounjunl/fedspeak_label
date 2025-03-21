@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FedSpeak Hedging - Labeling</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        /* Spinner for loading */
+        .spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-4">
+        <!-- Header -->
+        <header class="bg-white shadow rounded-lg mb-6 flex justify-between items-center p-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">FedSpeak Hedging</h1>
+                <p class="text-gray-600">Labeling Q&A pairs as relevant or irrelevant</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-gray-700">Welcome, <span class="font-semibold">{{ user_id }}</span></span>
+                <a href="{{ url_for('logout') }}" class="text-red-600 hover:text-red-800 text-sm">Logout</a>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="flex flex-col lg:flex-row space-y-6 lg:space-y-0 lg:space-x-6">
+            <!-- Left Column: QnA Display -->
+            <div class="lg:w-3/4 bg-white shadow rounded-lg overflow-hidden fade-in" id="qna-container">
+                <!-- Loading State -->
+                <div id="loading-state" class="p-8 text-center">
+                    <div class="spinner mx-auto mb-4"></div>
+                    <p class="text-gray-600">Loading the next Q&A pair...</p>
+                </div>
+                
+                <!-- QnA Content -->
+                <div id="qna-content" class="hidden">
+                    <!-- QnA Metadata -->
+                    <div class="bg-gray-50 px-6 py-4 border-b">
+                        <div class="flex flex-wrap justify-between items-center">
+                            <div class="mb-2 md:mb-0">
+                                <span class="text-sm font-medium text-gray-500">Date:</span>
+                                <span class="ml-1 text-sm text-gray-800" id="qna-date"></span>
+                            </div>
+                            <div class="mb-2 md:mb-0">
+                                <span class="text-sm font-medium text-gray-500">File:</span>
+                                <span class="ml-1 text-sm text-gray-800" id="qna-filename"></span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">ID:</span>
+                                <span class="ml-1 text-sm text-gray-800" id="qna-id"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Question -->
+                    <div class="px-6 py-4 border-b">
+                        <div class="flex items-center mb-2">
+                            <span class="font-medium text-gray-800" id="questioner-name"></span>
+                        </div>
+                        <div class="pl-0 py-2 mb-2">
+                            <p class="text-gray-800 whitespace-pre-line" id="question-text"></p>
+                        </div>
+                    </div>
+                    
+                    <!-- Response -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center mb-2">
+                            <span class="font-medium text-gray-800" id="responder-name"></span>
+                        </div>
+                        <div class="pl-0 py-2 mb-4">
+                            <p class="text-gray-800 whitespace-pre-line custom-scrollbar overflow-y-auto max-h-96" id="response-text"></p>
+                        </div>
+                    </div>
+                    
+                    <!-- Label Buttons -->
+                    <div class="px-6 py-6 bg-gray-50 border-t flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-6">
+                        <button id="btn-relevant" class="flex-1 sm:flex-none sm:w-40 bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors">
+                            Relevant
+                        </button>
+                        <button id="btn-irrelevant" class="flex-1 sm:flex-none sm:w-40 bg-red-600 text-white py-3 px-6 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors">
+                            Irrelevant
+                        </button>
+                        <button id="btn-skip" class="flex-1 sm:flex-none sm:w-40 bg-gray-600 text-white py-3 px-6 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+                            Skip
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- No More QnA State -->
+                <div id="no-more-qna" class="hidden p-8 text-center">
+                    <svg class="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">All Done!</h2>
+                    <p class="text-gray-600 mb-6">No more Q&A pairs need labeling. Thank you for your contribution!</p>
+                    <p class="text-gray-500">Check back later for more or contact the administrator.</p>
+                </div>
+            </div>
+            
+            <!-- Right Column: Stats -->
+            <div class="lg:w-1/4">
+                <div class="bg-white shadow rounded-lg overflow-hidden mb-6 fade-in">
+                    <div class="px-6 py-4 border-b">
+                        <h2 class="text-lg font-semibold text-gray-800">Your Statistics</h2>
+                    </div>
+                    <div class="px-6 py-4">
+                        <div class="space-y-4">
+                            <div>
+                                <p class="text-sm text-gray-500">Total Labeled</p>
+                                <p class="text-2xl font-bold text-gray-800" id="stat-user-total">{{ stats.user.total }}</p>
+                            </div>
+                            <div class="flex space-x-6">
+                                <div>
+                                    <p class="text-sm text-gray-500">Relevant</p>
+                                    <p class="text-xl font-semibold text-green-600" id="stat-user-relevant">{{ stats.user.relevant }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-500">Irrelevant</p>
+                                    <p class="text-xl font-semibold text-red-600" id="stat-user-irrelevant">{{ stats.user.irrelevant }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white shadow rounded-lg overflow-hidden fade-in">
+                    <div class="px-6 py-4 border-b">
+                        <h2 class="text-lg font-semibold text-gray-800">Project Progress</h2>
+                    </div>
+                    <div class="px-6 py-4">
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-gray-500">Total Progress</span>
+                                    <span class="text-gray-800 font-medium" id="progress-percentage">
+                                        {{ (stats.overall.labeled / stats.overall.total * 100) | round(1) }}%
+                                    </span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="bg-blue-600 h-2.5 rounded-full" id="progress-bar" style="width: {{ (stats.overall.labeled / stats.overall.total * 100) }}%"></div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-sm text-gray-500">Labeled</p>
+                                    <p class="text-xl font-semibold text-blue-600" id="stat-overall-labeled">{{ stats.overall.labeled }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-500">Remaining</p>
+                                    <p class="text-xl font-semibold text-gray-800" id="stat-overall-remaining">{{ stats.overall.unlabeled }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Info -->
+    <div class="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg px-4 py-3 text-sm text-gray-600">
+        <p class="font-medium mb-1">Keyboard Shortcuts:</p>
+        <p><span class="font-mono bg-gray-100 px-1 rounded">r</span> - Relevant</p>
+        <p><span class="font-mono bg-gray-100 px-1 rounded">i</span> - Irrelevant</p>
+        <p><span class="font-mono bg-gray-100 px-1 rounded">s</span> - Skip</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elements
+            const loadingState = document.getElementById('loading-state');
+            const qnaContent = document.getElementById('qna-content');
+            const noMoreQna = document.getElementById('no-more-qna');
+            
+            // QnA Elements
+            const qnaId = document.getElementById('qna-id');
+            const qnaDate = document.getElementById('qna-date');
+            const qnaFilename = document.getElementById('qna-filename');
+            const questionerName = document.getElementById('questioner-name');
+            const questionText = document.getElementById('question-text');
+            const responderName = document.getElementById('responder-name');
+            const responseText = document.getElementById('response-text');
+            
+            // Buttons
+            const btnRelevant = document.getElementById('btn-relevant');
+            const btnIrrelevant = document.getElementById('btn-irrelevant');
+            const btnSkip = document.getElementById('btn-skip');
+            
+            // Stats Elements
+            const statUserTotal = document.getElementById('stat-user-total');
+            const statUserRelevant = document.getElementById('stat-user-relevant');
+            const statUserIrrelevant = document.getElementById('stat-user-irrelevant');
+            const statOverallLabeled = document.getElementById('stat-overall-labeled');
+            const statOverallRemaining = document.getElementById('stat-overall-remaining');
+            const progressBar = document.getElementById('progress-bar');
+            const progressPercentage = document.getElementById('progress-percentage');
+            
+            // Current QnA
+            let currentQnaId = null;
+            
+            // Load the next QnA
+            function loadNextQna() {
+                showLoading();
+                
+                fetch('/api/next_qna')
+                    .then(response => {
+                        if (!response.ok) {
+                            if (response.status === 404) {
+                                // No more QnA pairs to label
+                                showNoMoreQna();
+                                return null;
+                            }
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data) {
+                            // Update the UI with the QnA data
+                            currentQnaId = data.id;
+                            qnaId.textContent = data.id;
+                            qnaDate.textContent = data.date;
+                            qnaFilename.textContent = data.filename;
+                            questionerName.textContent = data.questioner;
+                            questionText.textContent = data.question;
+                            responderName.textContent = data.responder;
+                            responseText.textContent = data.response;
+                            
+                            showQnaContent();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching next QnA:', error);
+                        alert('Error loading the next Q&A pair. Please try refreshing the page.');
+                    });
+            }
+            
+            // Label the current QnA
+            function labelQna(label) {
+                if (!currentQnaId) return;
+                
+                showLoading();
+                
+                fetch('/api/label_qna', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        qna_id: currentQnaId,
+                        label: label
+                    }),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Update stats
+                    updateStats();
+                    
+                    // Load the next QnA
+                    loadNextQna();
+                })
+                .catch(error => {
+                    console.error('Error labeling QnA:', error);
+                    alert('Error saving your label. Please try again.');
+                    showQnaContent();
+                });
+            }
+            
+            // Skip the current QnA
+            function skipQna() {
+                loadNextQna();
+            }
+            
+            // Update statistics
+            function updateStats() {
+                fetch('/api/stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        statUserTotal.textContent = data.user.total;
+                        statUserRelevant.textContent = data.user.relevant;
+                        statUserIrrelevant.textContent = data.user.irrelevant;
+                        
+                        statOverallLabeled.textContent = data.overall.labeled;
+                        statOverallRemaining.textContent = data.overall.unlabeled;
+                        
+                        const progressPct = (data.overall.labeled / data.overall.total * 100).toFixed(1);
+                        progressBar.style.width = `${progressPct}%`;
+                        progressPercentage.textContent = `${progressPct}%`;
+                    })
+                    .catch(error => {
+                        console.error('Error updating stats:', error);
+                    });
+            }
+            
+            // Show loading state
+            function showLoading() {
+                loadingState.classList.remove('hidden');
+                qnaContent.classList.add('hidden');
+                noMoreQna.classList.add('hidden');
+            }
+            
+            // Show QnA content
+            function showQnaContent() {
+                loadingState.classList.add('hidden');
+                qnaContent.classList.remove('hidden');
+                noMoreQna.classList.add('hidden');
+            }
+            
+            // Show no more QnA state
+            function showNoMoreQna() {
+                loadingState.classList.add('hidden');
+                qnaContent.classList.add('hidden');
+                noMoreQna.classList.remove('hidden');
+            }
+            
+            // Event listeners for buttons
+            btnRelevant.addEventListener('click', () => labelQna(true));
+            btnIrrelevant.addEventListener('click', () => labelQna(false));
+            btnSkip.addEventListener('click', skipQna);
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', event => {
+                // Only process shortcuts if QnA content is visible
+                if (qnaContent.classList.contains('hidden')) return;
+                
+                switch(event.key.toLowerCase()) {
+                    case 'r':
+                        labelQna(true);
+                        break;
+                    case 'i':
+                        labelQna(false);
+                        break;
+                    case 's':
+                        skipQna();
+                        break;
+                }
+            });
+            
+            // Initial load
+            loadNextQna();
+        });
+    </script>
+</body>
+</html>
