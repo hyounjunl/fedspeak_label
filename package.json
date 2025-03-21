@@ -1,0 +1,11 @@
+{
+    "name": "fedspeak-hedging",
+    "version": "1.0.0",
+    "description": "FOMC Q&A Labeling Tool",
+    "scripts": {
+      "build": "pip install -r requirements.txt"
+    },
+    "engines": {
+      "node": ">=14.x"
+    }
+  }
